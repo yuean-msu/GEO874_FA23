@@ -162,11 +162,48 @@ Map.addLayer(roi_buffer, {}, "roi_buffer")
 // set projection
 var crs = 'EPSG:4326'
 
+/*
 Export.image.toDrive({
     image: modisToBands,
     folder: folder,
     description: 'MOD11A2_detroit_2018_2021',
     fileNamePrefix: 'mod11a2_detroit_2018_2021',
+    fileFormat: 'GeoTIFF',
+    region: roi_buffer,
+    scale: 1000,
+    crs: crs,
+});
+*/
+
+
+/**Version 2 month composite*/
+// month composite
+var year = 2018
+var n_year = 4
+
+var modisLST = ee.ImageCollection('MODIS/061/MOD11A2').filterBounds(roi)
+    .filterDate(ee.Date.fromYMD(year, 1, 1), ee.Date.fromYMD(year + n_year, 1, 1))
+    .map(scaleModisLst)
+    .map(maskModisLst)
+    .select(['LST_Day_1km'])
+
+var modisLST_month = ee.List.sequence(0, n_year * 12 - 1, 1).map(function (n) {
+    var start = ee.Date.fromYMD(year, 1, 1).advance(n, 'month');
+    var end = start.advance(1, 'month');
+    var tmpMedian = modisLST.filterDate(start, end).median().set("system:time_start", start.millis());
+    return tmpMedian;
+}).flatten();
+var modisLST_month = ee.ImageCollection.fromImages(modisLST_month);
+print("modisLST_month", modisLST_month);
+
+var monthlyLST_month_bands = modisLST_month.toBands()
+print(monthlyLST_month_bands)
+
+Export.image.toDrive({
+    image: monthlyLST_month_bands,
+    folder: folder,
+    description: 'MOD11A2_detroit_monthly_median',
+    fileNamePrefix: 'mod11a2_detroit_monthly_median',
     fileFormat: 'GeoTIFF',
     region: roi_buffer,
     scale: 1000,
